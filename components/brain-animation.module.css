@@ -1,0 +1,28 @@
+.orbit {
+  fill: none;
+  stroke: #89bfff;
+  stroke-width: 2;
+  opacity: 0.5;
+  transform-origin: center;
+}
+.orbit1 {
+  animation: rotate1 4s linear infinite;
+}
+.orbit2 {
+  animation: rotate2 6s linear infinite;
+}
+.orbit3 {
+  animation: rotate3 5s linear infinite;
+}
+@keyframes rotate1 {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+@keyframes rotate2 {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(-360deg); }
+}
+@keyframes rotate3 {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+} 

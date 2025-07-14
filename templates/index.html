@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Jean AI Chatbot</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #1e1e1e;
+      color: #f5f5f5;
+      margin: 0;
+      padding: 2rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    h2 {
+      color: #61dafb;
+      margin-bottom: 1rem;
+    }
+    input[type="text"] {
+      width: 70%;
+      padding: 0.7rem;
+      border: none;
+      border-radius: 6px;
+      font-size: 1rem;
+      margin-bottom: 1rem;
+      background-color: #2d2d2d;
+      color: #f5f5f5;
+    }
+    button {
+      padding: 0.7rem 1.2rem;
+      font-size: 1rem;
+      background-color: #61dafb;
+      color: #000;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-left: 0.5rem;
+      transition: all 0.3s ease;
+    }
+    button:hover {
+      background-color: #21a1f1;
+      transform: scale(1.05);
+    }
+    button:disabled {
+      background-color: #4a4a4a;
+      cursor: not-allowed;
+    }
+    #response {
+      white-space: pre-wrap;
+      background-color: #2d2d2d;
+      border-radius: 6px;
+      padding: 1rem;
+      width: 80%;
+      max-height: 400px;
+      overflow-y: auto;
+      margin-top: 1rem;
+      border: 1px solid #444;
+    }
+    .brain-loader {
+      display: none;
+      width: 100px;
+      height: 100px;
+      margin: 20px auto;
+    }
+    .brain-loader svg {
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0% { transform: scale(0.95); opacity: 0.5; }
+      50% { transform: scale(1.05); opacity: 1; }
+      100% { transform: scale(0.95); opacity: 0.5; }
+    }
+    .chat-container {
+      width: 80%;
+      max-width: 700px;
+      margin: 0 auto;
+    }
+    .message {
+      margin: 10px 0;
+      padding: 10px;
+      border-radius: 6px;
+    }
+    .user-message {
+      background-color: #2d2d2d;
+      margin-left: 20%;
+    }
+    .ai-message {
+      background-color: #1a3a4a;
+      margin-right: 20%;
+    }
+  </style>
+</head>
+<body>
+  <h2>Talk to Jean AI</h2>
+  <div class="brain-loader" id="brainLoader">
+    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z" fill="#61dafb"/>
+    </svg>
+  </div>
+  <div class="chat-container">
+    <div style="display: flex; width: 100%;">
+      <input type="text" id="prompt" placeholder="Type your question..." onkeypress="handleEnter(event)">
+      <button id="sendButton" onclick="ask()">Send</button>
+      <button id="voiceButton" onclick="startVoiceRecording()">Voice</button>
+      <button id="wakeButton" onclick="startWakeWordDetection()">Wake Word</button>
+    </div>
+    <div id="response">Jean is waiting for your question...</div>
+  </div>
+
+  <audio id="audioElement" style="display: none;"></audio>
+
+  <script>
+    const brainLoader = document.getElementById('brainLoader');
+    const sendButton = document.getElementById('sendButton');
+    const responseBox = document.getElementById('response');
+    const promptInput = document.getElementById('prompt');
+    const voiceButton = document.getElementById('voiceButton');
+    const wakeButton = document.getElementById('wakeButton');
+    const audioElement = document.getElementById('audioElement');
+    let mediaRecorder;
+    let audioChunks = [];
+
+    // Show brain loader on page load
+    window.onload = function() {
+      brainLoader.style.display = 'block';
+      setTimeout(() => {
+        brainLoader.style.display = 'none';
+      }, 2000);
+    };
+
+    async function ask() {
+      const prompt = promptInput.value.trim();
+      if (!prompt) return;
+
+      // Show loading state
+      brainLoader.style.display = 'block';
+      sendButton.disabled = true;
+      responseBox.innerHTML = '<div class="message ai-message">Thinking...</div>';
+      promptInput.value = "";
+
+      try {
+        const res = await fetch('/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt })
+        });
+        
+        if (!res.ok) {
+          throw new Error(`HTTP error! status: ${res.status}`);
+        }
+        
+        const data = await res.json();
+        responseBox.innerHTML = `
+          <div class="message user-message">${prompt}</div>
+          <div class="message ai-message">${data.response || "No response received."}</div>
+        `;
+      } catch (err) {
+        responseBox.innerHTML = `
+          <div class="message user-message">${prompt}</div>
+          <div class="message ai-message">Error: ${err.message}</div>
+        `;
+      } finally {
+        brainLoader.style.display = 'none';
+        sendButton.disabled = false;
+      }
+    }
+
+    function handleEnter(e) {
+      if (e.key === 'Enter' && !sendButton.disabled) {
+        ask();
+      }
+    }
+
+    async function startVoiceRecording() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream);
+        audioChunks = [];
+
+        mediaRecorder.ondataavailable = (event) => {
+          audioChunks.push(event.data);
+        };
+
+        mediaRecorder.onstop = async () => {
+          const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+          const reader = new FileReader();
+          reader.readAsDataURL(audioBlob);
+          reader.onloadend = async () => {
+            const base64Audio = reader.result.split(',')[1];
+            await sendVoiceData(base64Audio);
+          };
+        };
+
+        mediaRecorder.start();
+        voiceButton.textContent = 'Stop';
+        voiceButton.onclick = stopVoiceRecording;
+      } catch (err) {
+        console.error('Error accessing microphone:', err);
+        alert('Error accessing microphone. Please ensure you have granted microphone permissions.');
+      }
+    }
+
+    function stopVoiceRecording() {
+      mediaRecorder.stop();
+      voiceButton.textContent = 'Voice';
+      voiceButton.onclick = startVoiceRecording;
+    }
+
+    async function sendVoiceData(base64Audio) {
+      try {
+        const res = await fetch('/voice', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ voice: base64Audio })
+        });
+        
+        if (!res.ok) {
+          throw new Error(`HTTP error! status: ${res.status}`);
+        }
+        
+        const data = await res.json();
+        promptInput.value = data.transcript;
+        ask();
+      } catch (err) {
+        console.error('Error sending voice data:', err);
+        alert('Error processing voice input. Please try again.');
+      }
+    }
+
+    async function startWakeWordDetection() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream);
+        audioChunks = [];
+
+        mediaRecorder.ondataavailable = (event) => {
+          audioChunks.push(event.data);
+        };
+
+        mediaRecorder.onstop = async () => {
+          const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+          const reader = new FileReader();
+          reader.readAsDataURL(audioBlob);
+          reader.onloadend = async () => {
+            const base64Audio = reader.result.split(',')[1];
+            await sendWakeWordData(base64Audio);
+          };
+        };
+
+        mediaRecorder.start();
+        wakeButton.textContent = 'Stop';
+        wakeButton.onclick = stopWakeWordDetection;
+      } catch (err) {
+        console.error('Error accessing microphone:', err);
+        alert('Error accessing microphone. Please ensure you have granted microphone permissions.');
+      }
+    }
+
+    function stopWakeWordDetection() {
+      mediaRecorder.stop();
+      wakeButton.textContent = 'Wake Word';
+      wakeButton.onclick = startWakeWordDetection;
+    }
+
+    async function sendWakeWordData(base64Audio) {
+      try {
+        const res = await fetch('/wake', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ audio: base64Audio })
+        });
+        
+        if (!res.ok) {
+          throw new Error(`HTTP error! status: ${res.status}`);
+        }
+        
+        const data = await res.json();
+        if (data.status === 'Wake word detected') {
+          alert('Wake word detected!');
+          startVoiceRecording();
+        } else {
+          alert('Wake word not detected. Please try again.');
+        }
+      } catch (err) {
+        console.error('Error sending wake word data:', err);
+        alert('Error processing wake word. Please try again.');
+      }
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,25 @@
+# Core Flask and Web Dependencies
+flask==2.3.3
+python-dotenv==1.0.0
+
+# OpenAI and AI Dependencies
+openai==0.28.1
+
+# Speech and Audio Processing
+pyttsx3==2.90
+SpeechRecognition==3.10.0
+pyaudio==0.2.11
+
+# System Monitoring
+psutil==5.9.5
+
+# Google Services Integration
+google-auth==2.23.3
+google-auth-oauthlib==1.1.0
+google-api-python-client==2.103.0
+
+# Scheduling and Utilities
+schedule==1.2.0
+
+# Additional Utilities
+requests==2.31.0
